@@ -137,24 +137,25 @@ $(document).ready(() => {
   webSocket.onmessage = function onMessage(message) {
     try {
       const messageData = JSON.parse(message.data);
-      console.log(messageData);
 
-      // time and either temperature or humidity are required
-      if (!messageData.MessageDate || (!messageData.IotData.temperature && !messageData.IotData.humidity)) {
-        return;
-      }
+      //splitting the temperature and humidity data
+      //JSON can't be used as the data template from Particle breaks the JSON-format
+      //expected data format in Particle : "{\"temperature\":XX.XXXX, \"humidity\":YY.YYYY}"
+      //expected return value : [XX.XXXX,YY.YYYY]
+      var temp = splitSensorData(messageData)[0];
+      var hum = splitSensorData(messageData)[1];
 
       // find or add device to list of tracked devices
       const existingDeviceData = trackedDevices.findDevice(messageData.DeviceId);
 
       if (existingDeviceData) {
-        existingDeviceData.addData(messageData.MessageDate, messageData.IotData.temperature, messageData.IotData.humidity);
+        existingDeviceData.addData(messageData.MessageDate, temp, hum);
       } else {
         const newDeviceData = new DeviceData(messageData.DeviceId);
         trackedDevices.devices.push(newDeviceData);
         const numDevices = trackedDevices.getDevicesCount();
         deviceCount.innerText = numDevices === 1 ? `${numDevices} device` : `${numDevices} devices`;
-        newDeviceData.addData(messageData.MessageDate, messageData.IotData.temperature, messageData.IotData.humidity);
+        newDeviceData.addData(messageData.MessageDate, temp, hum);
 
         // add device to the UI list
         const node = document.createElement('option');
@@ -171,8 +172,19 @@ $(document).ready(() => {
       }
 
       myLineChart.update();
+      console.log('updated');
     } catch (err) {
       console.error(err);
     }
   };
+
+  function splitSensorData (messageData){
+    var temhumsplit = JSON.stringify(messageData.IotData.data).split(",");
+    var tempsplit = temhumsplit[0].split(":");
+    var temp = tempsplit[1];
+    var humsplit = temhumsplit[1].split(":");
+    var hum = humsplit[1].slice(0,-2);
+    return [temp, hum];
+
+  }
 });
